@@ -162,7 +162,16 @@ Block-size = 3
  - - - 
  ## How to use: Filters
 ```
+from adaptive_filter.algorithms.nlms import NLMS 
 
+# setting up filter
+mu = 0.001
+nlms_af = NLMS(mu=mu, n=32)
+
+# Assuming signals are already present and named accordingly 
+error, noise_estimate = nlms_af.filter(
+    d=noisy_signal, x=noise, eval_at_sample=1000, clean_signal=clean_signal, return_metrics=False
+)
 ```
 
  - - -

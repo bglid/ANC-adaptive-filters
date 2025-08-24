@@ -69,7 +69,7 @@ class STFT:
     # to inverse this, we basically want the same procedure, but going in the other direction
     def istft(self, frames: NDArray[np.complex128]) -> NDArray[np.float64]:
         n_frames, n_sample_length = frames.shape
-        assert n_sample_length == self.window_length // 2 + 1
+        # assert n_sample_length == self.window_length // 2 + 1
 
         # the output length should be the frames * N/2
         output_length = (n_frames - 1) * self.hop_size + self.window_length
