@@ -2672,14 +2672,14 @@ spdx = ["spdx-tools (>=0.8.2)"]
 
 [[package]]
 name = "safety-schemas"
-version = "0.0.15"
+version = "0.0.16"
 description = "Schemas for Safety tools"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "safety_schemas-0.0.15-py3-none-any.whl", hash = "sha256:20a56678a5a54abea6ab8151f0eb84eeab7b9638f5991bee87ebee3d07f5a385"},
-    {file = "safety_schemas-0.0.15.tar.gz", hash = "sha256:cc072d7230df07c80dbe7b8919b0549089b97f8c7ea6710ad6fa141fe3c0d598"},
+    {file = "safety_schemas-0.0.16-py3-none-any.whl", hash = "sha256:6760515d3fd1e6535b251cd73014bd431d12fe0bfb8b6e8880a9379b5ab7aa44"},
+    {file = "safety_schemas-0.0.16.tar.gz", hash = "sha256:3bb04d11bd4b5cc79f9fa183c658a6a8cf827a9ceec443a5ffa6eed38a50a24e"},
 ]
 
 [package.dependencies]
