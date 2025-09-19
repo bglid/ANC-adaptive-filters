@@ -34,7 +34,7 @@ python = ">=3.9.2,<4.0"
 
 [tool.poetry.group.dev.dependencies]
 bandit = "^1.7.1"
-black = "^25.1.0"
+black = "^25.9.0"
 darglint = "^1.8.1"
 isort = {extras = ["colors"], version = "^5.10.1"}
 mypy = "1.14.0"
