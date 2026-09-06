@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - "rust/**"
+      - "src/**"
       - ".github/workflows/rust-ci.yml"
   pull_request:
     paths:
       - "rust/**"
+      - "src/**"
       - ".github/workflows/rust-ci.yml"
 
 env:
@@ -21,7 +23,7 @@ jobs:
       matrix:
         toolchain:
           - stable
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
