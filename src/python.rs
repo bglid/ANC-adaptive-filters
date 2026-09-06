@@ -11,7 +11,7 @@ use numpy::{PyArray1, PyReadonlyArray1};
 
 use crate::Error;
 use crate::algorithms::LeastMeanSquares;
-use crate::filters::LMSFilter as RustLMSFilter;
+use crate::filters::FilterBase;
 use crate::types::{InputSignal, NoiseReference};
 
 impl Error {
@@ -59,15 +59,15 @@ mod adaptif {
 
 /// Declarative macro for generating filter binding setup.
 macro_rules! pyo3_filter {
-    ($name: ident, $filter: ident, $algo: ident) => {
+    ($name: ident, $algo: ident) => {
         #[pyclass]
-        pub struct $name($filter);
+        pub struct $name(FilterBase<$algo>);
         #[pymethods]
         impl $name {
             #[new]
             fn new(mu: f64, window_size: usize) -> PyResult<Self> {
                 let filter = $algo::new(mu).map_err(|e| e.to_pyerr())?;
-                match $filter::new(filter, window_size) {
+                match FilterBase::<$algo>::new(filter, window_size) {
                     Some(filter) => Ok(Self(filter)),
                     None => Err(PyValueError::new_err("window_size cannot be zero")),
                 }
@@ -131,7 +131,8 @@ macro_rules! pyo3_filter {
         }
     };
 }
-pyo3_filter!(LMSFilter, RustLMSFilter, LeastMeanSquares);
+pyo3_filter!(LMSFilter, LeastMeanSquares);
+// pyo3_filter!(NLMSFilter, NormalizedLeastMeanSquares);
 
 // #[pyclass]
 // pub struct LMSFilter(RustLMSFilter);
