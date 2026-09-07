@@ -10,7 +10,7 @@ use pyo3::exceptions::PyValueError;
 use numpy::{PyArray1, PyReadonlyArray1};
 
 use crate::Error;
-use crate::algorithms::LeastMeanSquares;
+use crate::algorithms::{Algorithm, LeastMeanSquares, NormalizedLeastMeanSquares};
 use crate::filters::FilterBase;
 use crate::types::{InputSignal, NoiseReference};
 
@@ -51,28 +51,45 @@ impl<'a> NoiseReference<'a> {
     }
 }
 
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "PyArrays must be passed by value"
+)]
+// Because the wrappers for adapt() and filter() would only differ in one line,
+// we use this underlying implementation.
+fn adapt_filter_impl<'py, A>(
+    filter: &mut FilterBase<A>,
+    py: Python<'py>,
+    input_signal: PyReadonlyArray1<f64>,
+    noise_ref: PyReadonlyArray1<f64>,
+    op: FilterOperation,
+) -> PyResult<Bound<'py, PyArray1<f64>>>
+where
+    A: Algorithm,
+{
+    let input_signal = InputSignal::from_pyarray(&input_signal)?;
+    let noise_ref = NoiseReference::from_pyarray(&noise_ref)?;
+
+    let output_signal = match op {
+        FilterOperation::Adapt => filter.adapt(&input_signal, &noise_ref),
+        FilterOperation::Filter => filter.filter(&input_signal, &noise_ref),
+    }
+    .map_err(|e| e.to_pyerr())?;
+
+    Ok(PyArray1::from_vec(py, output_signal))
+}
+
 #[pymodule]
 mod adaptif {
     #[pymodule_export]
-    use super::LMSFilter;
+    use super::{LMSFilter, NLMSFilter};
 }
 
 /// Declarative macro for generating filter binding setup.
 macro_rules! pyo3_filter {
-    ($name: ident, $algo: ident) => {
-        #[pyclass]
-        pub struct $name(FilterBase<$algo>);
+    ($name: ident) => {
         #[pymethods]
         impl $name {
-            #[new]
-            fn new(mu: f64, window_size: usize) -> PyResult<Self> {
-                let filter = $algo::new(mu).map_err(|e| e.to_pyerr())?;
-                match FilterBase::<$algo>::new(filter, window_size) {
-                    Some(filter) => Ok(Self(filter)),
-                    None => Err(PyValueError::new_err("window_size cannot be zero")),
-                }
-            }
-
             #[getter]
             fn window_size(&self) -> usize {
                 self.0.window_size()
@@ -86,7 +103,13 @@ macro_rules! pyo3_filter {
                 input_signal: PyReadonlyArray1<f64>,
                 noise_ref: PyReadonlyArray1<f64>,
             ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-                self.adapt_filter_impl(py, input_signal, noise_ref, FilterOperation::Adapt)
+                adapt_filter_impl(
+                    &mut self.0,
+                    py,
+                    input_signal,
+                    noise_ref,
+                    FilterOperation::Adapt,
+                )
             }
 
             fn filter<'py>(
@@ -98,111 +121,52 @@ macro_rules! pyo3_filter {
                 input_signal: PyReadonlyArray1<f64>,
                 noise_ref: PyReadonlyArray1<f64>,
             ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-                self.adapt_filter_impl(py, input_signal, noise_ref, FilterOperation::Filter)
-            }
-        }
-
-        // The methods below won't be exported
-        impl $name {
-            #[allow(
-                clippy::needless_pass_by_value,
-                reason = "PyArrays must be passed by value"
-            )]
-            // Because the wrappers for adapt() and filter() would only differ in one line,
-            // we use this underlying implementation.
-            fn adapt_filter_impl<'py>(
-                &mut self,
-                py: Python<'py>,
-                input_signal: PyReadonlyArray1<f64>,
-                noise_ref: PyReadonlyArray1<f64>,
-                op: FilterOperation,
-            ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-                let input_signal = InputSignal::from_pyarray(&input_signal)?;
-                let noise_ref = NoiseReference::from_pyarray(&noise_ref)?;
-
-                let output_signal = match op {
-                    FilterOperation::Adapt => self.0.adapt(&input_signal, &noise_ref),
-                    FilterOperation::Filter => self.0.filter(&input_signal, &noise_ref),
-                }
-                .map_err(|e| e.to_pyerr())?;
-
-                Ok(PyArray1::from_vec(py, output_signal))
+                adapt_filter_impl(
+                    &mut self.0,
+                    py,
+                    input_signal,
+                    noise_ref,
+                    FilterOperation::Filter,
+                )
             }
         }
     };
 }
-pyo3_filter!(LMSFilter, LeastMeanSquares);
-// pyo3_filter!(NLMSFilter, NormalizedLeastMeanSquares);
 
-// #[pyclass]
-// pub struct LMSFilter(RustLMSFilter);
-// #[pymethods]
-// impl LMSFilter {
-//     #[new]
-//     fn new(mu: f64, window_size: usize) -> PyResult<Self> {
-//         let lms = LeastMeanSquares::new(mu).map_err(|e| e.to_pyerr())?;
-//         match RustLMSFilter::new(lms, window_size) {
-//             Some(filter) => Ok(Self(filter)),
-//             None => Err(PyValueError::new_err("window_size cannot be zero")),
-//         }
-//     }
-//
-//     #[getter]
-//     fn window_size(&self) -> usize {
-//         self.0.window_size()
-//     }
-//
-//     // TODO: weights() (+ check before/after in tests)
-//
-//     fn adapt<'py>(
-//         &mut self,
-//         py: Python<'py>,
-//         input_signal: PyReadonlyArray1<f64>,
-//         noise_ref: PyReadonlyArray1<f64>,
-//     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-//         self.adapt_filter_impl(py, input_signal, noise_ref, FilterOperation::Adapt)
-//     }
-//
-//     fn filter<'py>(
-//         // self has to be mutable so that we can call adapt_filter_impl().
-//         // In Python there is no immutability, and we later pass an immutable reference
-//         // to the Rust filter() fn with the actual implementation, so this is fine.
-//         &mut self,
-//         py: Python<'py>,
-//         input_signal: PyReadonlyArray1<f64>,
-//         noise_ref: PyReadonlyArray1<f64>,
-//     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-//         self.adapt_filter_impl(py, input_signal, noise_ref, FilterOperation::Filter)
-//     }
-// }
+// ------- LMS
+#[pyclass]
+pub struct LMSFilter(FilterBase<LeastMeanSquares>);
+#[pymethods]
+impl LMSFilter {
+    #[new]
+    fn new(mu: f64, window_size: usize) -> PyResult<Self> {
+        let lms = LeastMeanSquares::new(mu).map_err(|e| e.to_pyerr())?;
+        match FilterBase::<LeastMeanSquares>::new(lms, window_size) {
+            Some(filter) => Ok(Self(filter)),
+            None => Err(PyValueError::new_err("window_size cannot be zero")),
+        }
+    }
+}
 
-// The methods below won't be exported
-// impl LMSFilter {
-//     #[allow(
-//         clippy::needless_pass_by_value,
-//         reason = "PyArrays must be passed by value"
-//     )]
-//     // Because the wrappers for adapt() and filter() would only differ in one line,
-//     // we use this underlying implementation.
-//     fn adapt_filter_impl<'py>(
-//         &mut self,
-//         py: Python<'py>,
-//         input_signal: PyReadonlyArray1<f64>,
-//         noise_ref: PyReadonlyArray1<f64>,
-//         op: FilterOperation,
-//     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-//         let input_signal = InputSignal::from_pyarray(&input_signal)?;
-//         let noise_ref = NoiseReference::from_pyarray(&noise_ref)?;
-//
-//         let output_signal = match op {
-//             FilterOperation::Adapt => self.0.adapt(&input_signal, &noise_ref),
-//             FilterOperation::Filter => self.0.filter(&input_signal, &noise_ref),
-//         }
-//         .map_err(|e| e.to_pyerr())?;
-//
-//         Ok(PyArray1::from_vec(py, output_signal))
-//     }
-// }
+pyo3_filter!(LMSFilter);
+
+// ------- NLMS
+#[pyclass]
+pub struct NLMSFilter(FilterBase<NormalizedLeastMeanSquares>);
+#[pymethods]
+impl NLMSFilter {
+    #[new]
+    fn new(mu: f64, window_size: usize) -> PyResult<Self> {
+        let nlms = NormalizedLeastMeanSquares::new(mu, 1e-8).map_err(|e| e.to_pyerr())?;
+        match FilterBase::<NormalizedLeastMeanSquares>::new(nlms, window_size) {
+            Some(filter) => Ok(Self(filter)),
+            None => Err(PyValueError::new_err("window_size cannot be zero")),
+        }
+    }
+}
+
+pyo3_filter!(NLMSFilter);
+// -------
 
 #[derive(Debug, Clone, Copy)]
 enum FilterOperation {
