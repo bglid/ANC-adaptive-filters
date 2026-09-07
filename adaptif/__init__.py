@@ -1,3 +1,6 @@
-from .adaptif import LMSFilter
+from .adaptif import LMSFilter, NLMSFilter
 
-__all__ = ["LMSFilter"]
+__all__ = [
+    "LMSFilter",
+    "NLMSFilter",
+]
