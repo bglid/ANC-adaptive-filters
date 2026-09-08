@@ -1,9 +1,11 @@
-from adaptif import LMSFilter
+import pytest
+
+from adaptif import LMSFilter, NLMSFilter
 
 
-def test_lms_filter():
-    filter = LMSFilter(1.0, 1024)
-
+@pytest.mark.parametrize("filter_algo", [LMSFilter, NLMSFilter])
+def test_filter_bindings(filter_algo):
+    filter = filter_algo(1.0, 1024)
     assert hasattr(filter, "window_size")
     assert hasattr(filter, "adapt")
     assert hasattr(filter, "filter")

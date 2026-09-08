@@ -86,7 +86,7 @@ mod adaptif {
 }
 
 /// Declarative macro for generating filter binding setup.
-macro_rules! pyo3_filter {
+macro_rules! generate_filter_bindings {
     ($name: ident) => {
         #[pymethods]
         impl $name {
@@ -148,7 +148,7 @@ impl LMSFilter {
     }
 }
 
-pyo3_filter!(LMSFilter);
+generate_filter_bindings!(LMSFilter);
 
 // ------- NLMS
 #[pyclass]
@@ -165,7 +165,7 @@ impl NLMSFilter {
     }
 }
 
-pyo3_filter!(NLMSFilter);
+generate_filter_bindings!(NLMSFilter);
 // -------
 
 #[derive(Debug, Clone, Copy)]
