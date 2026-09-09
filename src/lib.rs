@@ -5,6 +5,9 @@ pub mod filters;
 pub mod types;
 
 #[cfg(feature = "python")]
+pub mod py_utils;
+
+#[cfg(feature = "python")]
 pub mod python;
 
 #[cfg(test)]
